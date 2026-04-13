@@ -1,0 +1,8 @@
+api_key      = "your-api-key-here"
+contract_id  = "your-contract-id"
+location     = "LAX"
+plan         = "VR1x1x25"
+hostname     = "vpc-vm.example.com"
+ssh_key_id   = 12345
+vpc_label    = "my-vpc"
+network_cidr = "192.168.16.0/20"
