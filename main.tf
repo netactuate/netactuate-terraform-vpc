@@ -31,21 +31,23 @@ resource "netactuate_vpc" "main" {
 
 resource "netactuate_vpc_gateway_firewall_rule" "allow_http" {
   vpc_id      = netactuate_vpc.main.vpc_id
+  ip_version  = 4
   direction   = "inbound"
-  protocol    = "tcp"
-  port        = 80
-  source_cidr = "0.0.0.0/0"
-  action      = "allow"
+  protocol    = "TCP"
+  port_start  = 80
+  port_end    = 80
+  network     = "0.0.0.0/0"
   description = "Allow inbound HTTP"
 }
 
 resource "netactuate_vpc_gateway_firewall_rule" "allow_ssh" {
   vpc_id      = netactuate_vpc.main.vpc_id
+  ip_version  = 4
   direction   = "inbound"
-  protocol    = "tcp"
-  port        = 22
-  source_cidr = "0.0.0.0/0"
-  action      = "allow"
+  protocol    = "TCP"
+  port_start  = 22
+  port_end    = 22
+  network     = "0.0.0.0/0"
   description = "Allow inbound SSH"
 }
 
@@ -64,12 +66,15 @@ resource "netactuate_vpc_floating_ip" "main" {
 # ---------------------------------------------------------------------------
 
 resource "netactuate_vpc_gateway_dnat_rule" "web_forward" {
-  vpc_id           = netactuate_vpc.main.vpc_id
-  external_port    = 8080
-  internal_address = "192.168.16.10"
-  internal_port    = 80
-  protocol         = "tcp"
-  description      = "Forward port 8080 to internal web server"
+  vpc_id               = netactuate_vpc.main.vpc_id
+  ip_version           = 4
+  protocol             = "TCP"
+  match_port_start     = 8080
+  match_port_end       = 8080
+  translation_address  = "192.168.16.10"
+  translation_port_start = 80
+  translation_port_end   = 80
+  description          = "Forward port 8080 to internal web server"
 }
 
 # ---------------------------------------------------------------------------
@@ -96,70 +101,88 @@ resource "netactuate_server" "vpc_vm" {
 #
 # # --- Network Load Balancer ---
 # resource "netactuate_network_loadbalancer_group" "nlb" {
-#   vpc_id      = netactuate_vpc.main.vpc_id
-#   label       = "${var.vpc_label}-nlb"
-#   description = "Network load balancer for VPC"
+#   network_loadbalancer_id = netactuate_vpc.main.network_loadbalancer_id
+#   name                    = "${var.vpc_label}-nlb"
+#   description             = "Network load balancer for VPC"
+#   ip_version              = 4
+#   algorithm               = "round_robin"
+#   match_address           = netactuate_vpc.main.bastion_ipv4
 #
 #   health_check {
-#     protocol = "tcp"
-#     port     = 80
+#     enabled  = true
+#     method   = "tcp"
 #     interval = 10
+#     retries  = 3
+#     delay    = 5
 #     timeout  = 5
 #   }
 #
 #   rule {
-#     listen_port  = 80
-#     target_port  = 80
-#     protocol     = "tcp"
+#     protocol      = "tcp"
+#     port_match    = 80
+#     port_internal = 80
 #   }
 #
 #   backend {
-#     address = "192.168.16.10"
-#     port    = 80
+#     name             = "web-1"
+#     internal_address = "192.168.16.10"
 #   }
 #
 #   backend {
-#     address = "192.168.16.11"
-#     port    = 80
+#     name             = "web-2"
+#     internal_address = "192.168.16.11"
 #   }
+# }
+#
+# # --- SSL Certificate ---
+# resource "netactuate_ssl_certificate" "main" {
+#   name        = "${var.vpc_label}-cert"
+#   certificate = file("certs/cert.pem")
+#   private_key = file("certs/key.pem")
 # }
 #
 # # --- HTTP Load Balancer ---
-# resource "netactuate_ssl_certificate" "main" {
-#   name             = "${var.vpc_label}-cert"
-#   certificate_body = file("certs/cert.pem")
-#   private_key      = file("certs/key.pem")
-#   certificate_chain = file("certs/chain.pem")
-# }
-#
 # resource "netactuate_http_loadbalancer_group" "hlb" {
-#   vpc_id      = netactuate_vpc.main.vpc_id
-#   label       = "${var.vpc_label}-hlb"
-#   description = "HTTP load balancer for VPC"
+#   http_loadbalancer_id = netactuate_vpc.main.http_loadbalancer_id
+#   name                 = "${var.vpc_label}-hlb"
+#   description          = "HTTP load balancer for VPC"
+#   algorithm            = "round_robin"
+#   internal_port        = 80
+#   match_address        = netactuate_vpc.main.bastion_ipv4
+#   match_ports          = "80+443"
 #
-#   ssl_certificate_id = netactuate_ssl_certificate.main.id
-#
-#   domain_rule {
-#     domain = var.hostname
-#     path   = "/"
+#   rule {
+#     match_domain           = var.hostname
+#     match_path             = "/"
+#     ssl_enabled            = true
+#     ssl_certificate_id     = netactuate_ssl_certificate.main.ssl_certificate_id
+#     https_redirect_enabled = true
 #   }
 #
 #   backend {
-#     address = "192.168.16.10"
-#     port    = 80
+#     name             = "web-1"
+#     internal_address = "192.168.16.10"
 #   }
 #
 #   backend {
-#     address = "192.168.16.11"
-#     port    = 80
+#     name             = "web-2"
+#     internal_address = "192.168.16.11"
 #   }
 # }
 #
 # # --- Backend Template ---
 # resource "netactuate_vpc_backend_template" "web" {
 #   vpc_id      = netactuate_vpc.main.vpc_id
-#   label       = "${var.vpc_label}-backend-template"
-#   port        = 80
-#   protocol    = "tcp"
+#   name        = "${var.vpc_label}-backend-template"
 #   description = "Backend template for web servers"
+#
+#   backend_host {
+#     name    = "web-1"
+#     address = "192.168.16.10"
+#   }
+#
+#   backend_host {
+#     name    = "web-2"
+#     address = "192.168.16.11"
+#   }
 # }

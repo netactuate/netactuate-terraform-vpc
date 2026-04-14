@@ -4,6 +4,14 @@ Terraform module for deploying a VPC on NetActuate's global edge network. Create
 network with SNAT, gateway firewall rules, a floating IP, DNAT port forwarding, and a VM
 inside the VPC -- all with a single `terraform apply`.
 
+### NetActuate Terraform Provider
+
+The NetActuate Terraform provider is installed automatically when you run `terraform init`.
+It is downloaded from the Terraform Registry and shared across all modules on your system.
+Each module in this collection is an independent, self-contained project with its own
+`main.tf`, `variables.tf`, and `outputs.tf` -- you can use any module on its own without
+the others.
+
 ## What This Deploys
 
 - **VPC** with a /20 private network and default SNAT for outbound internet access
